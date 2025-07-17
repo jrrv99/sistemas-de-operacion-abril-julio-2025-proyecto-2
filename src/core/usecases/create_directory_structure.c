@@ -59,6 +59,7 @@ static StatusCode create_species_directories(
     const FileSystemPort *file_system)
 {
     char *current_path = my_strdup(root_dir);
+
     if (!current_path)
     {
         return ERROR_MEMORY_ALLOCATION;
@@ -150,12 +151,32 @@ StatusCode create_directory_structure(
     const DirectoryCreationConfig *config,
     const FileSystemPort *file_system)
 {
+    char *tree_root_dir = malloc(strlen(config->root_dir) + strlen(tree->name) + 2); // +2 for '/' and '\0'
+
+    if (!tree_root_dir)
+    {
+        return ERROR_MEMORY_ALLOCATION;
+    }
+
+    sprintf(tree_root_dir, "%s/%s", config->root_dir, tree->name);
+
     // Create the root directory if it doesn't exist
     if (!file_system->directory_exists(config->root_dir))
     {
         StatusCode error = file_system->create_directory(config->root_dir);
         if (error != SUCCESS)
         {
+            return error;
+        }
+    }
+
+    // Create the family directory if it doesn't exist
+    if (!file_system->directory_exists(tree_root_dir))
+    {
+        StatusCode error = file_system->create_directory(tree_root_dir);
+        if (error != SUCCESS)
+        {
+            free(tree_root_dir);
             return error;
         }
     }
@@ -183,12 +204,13 @@ StatusCode create_directory_structure(
                 // Child process
                 StatusCode error = create_species_directories(
                     tree->species[i],
-                    config->root_dir,
+                    tree_root_dir,
                     (const char **)tree->questions,
                     tree->num_questions,
                     config,
                     file_system);
 
+                free(tree_root_dir);
                 exit(error);
             }
             else if (pid > 0)
@@ -201,6 +223,7 @@ StatusCode create_directory_structure(
             {
                 // Error creating process
                 logger_error("Failed to create process for species %s", tree->species[i]->name);
+                free(tree_root_dir);
                 return ERROR_MEMORY_ALLOCATION;
             }
         }
@@ -208,6 +231,7 @@ StatusCode create_directory_structure(
         // Wait for all child processes to finish
         if (!wait_for_child_processes())
         {
+            free(tree_root_dir);
             return ERROR_DIRECTORY_CREATION;
         }
     }
@@ -218,7 +242,7 @@ StatusCode create_directory_structure(
         {
             StatusCode error = create_species_directories(
                 tree->species[i],
-                config->root_dir,
+                tree_root_dir,
                 (const char **)tree->questions,
                 tree->num_questions,
                 config,
@@ -226,6 +250,8 @@ StatusCode create_directory_structure(
 
             if (error != SUCCESS)
             {
+                logger_error("Failed to create directories for species %s", tree->species[i]->name);
+                free(tree_root_dir);
                 return error;
             }
         }
