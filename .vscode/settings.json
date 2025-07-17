@@ -1,0 +1,11 @@
+{
+  "files.associations": {
+    "logger.h": "c",
+    "dicotomic_tree.h": "c",
+    "utils.h": "c",
+    "args_parser.h": "c",
+    "create_directory_structure.h": "c",
+    "types.h": "c",
+    "process_manager.h": "c"
+  }
+}
